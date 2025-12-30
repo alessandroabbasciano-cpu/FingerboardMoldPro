@@ -1,0 +1,22 @@
+{
+    "Popsicle Classic": {
+        "Flatness": 62,
+        "TaperStart": 22.0
+    },
+    "Modern Boxy": {
+        "Flatness": 85,
+        "TaperStart": 18.0
+    },
+    "Old School Egg": {
+        "Flatness": 40,
+        "TaperStart": 26.0
+    },
+    "Stubby / Square": {
+        "Flatness": 92,
+        "TaperStart": 12.0
+    },
+    "Pointy / Freestyle": {
+        "Flatness": 25,
+        "TaperStart": 28.0
+    }
+}
