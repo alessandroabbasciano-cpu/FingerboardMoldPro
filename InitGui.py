@@ -1,29 +1,25 @@
 import os
 import FreeCAD # type: ignore
-try:
-    import FreeCADGui  # type: ignore
-except Exception:
-    FreeCADGui = None
+import FreeCADGui # type: ignore
 
-# Use a safe base class if FreeCADGui is unavailable (e.g., running linters or headless)
-WorkbenchBase = getattr(FreeCADGui, "Workbench", object)
-
-class FingerboardMoldProWorkbench(WorkbenchBase):
-    # Percorso icone
-    ICONDIR = os.path.join(FreeCAD.getUserAppDataDir(), "Mod", "FingerboardMoldPro", "icons")
+class FingerboardMoldProWorkbench(FreeCADGui.Workbench):
+    try:
+        BASEDIR = os.path.dirname(__file__)
+    except NameError:
+        BASEDIR = os.path.join(FreeCAD.getUserAppDataDir(), "Mod", "FingerboardMoldPro")
+    
+    ICONDIR = os.path.join(BASEDIR, "icons")
     Icon = os.path.join(ICONDIR, "Workbench.svg")
     MenuText = "Fingerboard Mold Pro"
+    ToolTip = "Professional parametric molds for fingerboarding"
     
     def Initialize(self):
-        # Importiamo i comandi solo all'attivazione
         import FM_commands
-        self.cmd_list = ["FB_CreateMold", "FB_SavePreset", "FB_DeletePreset", "FB_ExportSTL", "FB_ExportSTL"]
-        if getattr(self, "appendToolbar", None):
-            self.appendToolbar("Mold Construction", self.cmd_list)
-
+        self.cmd_list = ["FB_CreateMold", "FB_SavePreset", "FB_DeletePreset", "FB_ExportSTL"]
+        self.appendToolbar("Mold Construction", self.cmd_list)
+        self.appendMenu("Fingerboard Mold", self.cmd_list)
+        
     def GetClassName(self):
         return "Gui::PythonWorkbench"
 
-# Register the workbench only if FreeCADGui is available
-if FreeCADGui is not None and getattr(FreeCADGui, "addWorkbench", None):
-    FreeCADGui.addWorkbench(FingerboardMoldProWorkbench())
+FreeCADGui.addWorkbench(FingerboardMoldProWorkbench())

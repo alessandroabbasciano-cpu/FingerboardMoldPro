@@ -53,7 +53,7 @@ def make_rounded_box(width, length, height, M_Radius):
     p7 = fc.Vector(-x, -y + M_Radius, z)
     p8 = fc.Vector(-x + M_Radius, -y, z)
     e1 = Part.makeLine(p8, p1)
-    e2 = Part.Arc(p1, fc.Vector(x - M_Radius*0.29, -y + M_Radius*0.29, z), p2).toShape() # approx corner
+    e2 = Part.Arc(p1, fc.Vector(x - M_Radius*0.29, -y + M_Radius*0.29, z), p2).toShape()
     e3 = Part.makeLine(p2, p3)
     e4 = Part.Arc(p3, fc.Vector(x - M_Radius*0.29, y - M_Radius*0.29, z), p4).toShape()
     e5 = Part.makeLine(p4, p5)
@@ -90,12 +90,12 @@ class ViewProviderMold:
         elif mold_type == "Board_Preview":
             self.ViewObject.ShapeColor = (0.9, 0.7, 0.3)
             self.ViewObject.Transparency = 0
-    def getIcon(self): return ":/icons/CreateMold.svg" 
+    def getIcon(self): return os.path.join(fc.getUserAppDataDir(), "Mod", "FingerboardMoldPro", "icons", "CreateMold.svg")
     def __getstate__(self): return None
     def __setstate__(self, state): return None
 
-PRESET_FILE = os.path.join(os.path.dirname(__file__), "fb_presets.json")
-SHAPE_FILE = os.path.join(os.path.dirname(__file__), "fb_shapes.json")
+PRESET_FILE = os.path.join(fc.getUserAppDataDir(), "Mod", "FingerboardMoldPro", "fb_presets.json")
+SHAPE_FILE = os.path.join(fc.getUserAppDataDir(), "Mod", "FingerboardMoldPro", "fb_shapes.json")
 
 class FB_Mold:
     def __init__(self, obj):
@@ -120,8 +120,8 @@ class FB_Mold:
         obj.addProperty("App::PropertyAngle", "NoseAngle", "Kicks").NoseAngle = 24.45
         obj.addProperty("App::PropertyAngle", "TailAngle", "Kicks").TailAngle = 24.45
         obj.addProperty("App::PropertyLength", "TruckHoleDiam", "Truck Holes").TruckHoleDiam = 1.7
-        obj.addProperty("App::PropertyLength", "TruckHoleDistL", "Truck Holes").TruckHoleDistL = 8.0
-        obj.addProperty("App::PropertyLength", "TruckHoleDistW", "Truck Holes").TruckHoleDistW = 5.0
+        obj.addProperty("App::PropertyLength", "TruckHoleDistL", "Truck Holes").TruckHoleDistL = 7.5
+        obj.addProperty("App::PropertyLength", "TruckHoleDistW", "Truck Holes").TruckHoleDistW = 5.5
         obj.addProperty("App::PropertyLength", "ShaperHeight", "Shaper").ShaperHeight = 10.0
         obj.addProperty("App::PropertyPercent", "NoseFlatness", "Shaper").NoseFlatness = 60
         obj.addProperty("App::PropertyPercent", "TailFlatness", "Shaper").TailFlatness = 60
@@ -171,7 +171,7 @@ class FB_Mold:
             self.is_updating_preset = False
             obj.recompute()
         except Exception as e:
-            fc.Console.PrintError(f"Errore caricamento preset: {e}\n")
+            fc.Console.PrintError(f"Error loading preset: {e}\n")
             self.is_updating_preset = False
 
     def reload_shapes_list(self, obj):
@@ -205,7 +205,7 @@ class FB_Mold:
                 obj.touch() 
 
         except Exception as e:
-            fc.Console.PrintError(f"Err Shape: {e}\n")
+            fc.Console.PrintError(f"Shape Error: {e}\n")
             self.is_updating_preset = False
 
     def onChanged(self, fp, prop):
@@ -231,62 +231,62 @@ class FB_Mold:
                 min_bw = 29.0
                 if fp.BoardWidth.Value < min_bw:
                     fp.BoardWidth = min_bw
-                    fc.Console.PrintWarning(f"BoardWidth minimo è {min_bw}mm!\n")
+                    fc.Console.PrintWarning(f"BoardWidth minimum is {min_bw}mm!\n")
                 elif fp.BoardWidth.Value > fp.MoldCoreWidth.Value:                                                                                                                          
                     fp.BoardWidth = fp.MoldCoreWidth.Value
-                    fc.Console.PrintWarning(f"BoardWidth non può superare MoldCoreWidth ({fp.MoldCoreWidth.Value}mm)!\n")
+                    fc.Console.PrintWarning(f"BoardWidth cannot exceed MoldCoreWidth ({fp.MoldCoreWidth.Value}mm)!\n")
             elif prop == "ConcaveDrop":
                 max_val = 3.4
                 if fp.ConcaveDrop.Value > max_val:
                     fp.ConcaveDrop = max_val
-                    fc.Console.PrintWarning(f"ConcaveDrop limitato a {max_val}mm!\n")
+                    fc.Console.PrintWarning(f"ConcaveDrop limited to {max_val}mm!\n")
                 elif fp.ConcaveDrop.Value < 0.0:
                     fp.ConcaveDrop = 0.0
             elif prop == "ConcaveLength":
                 max_len = fp.Wheelbase.Value
                 if fp.ConcaveLength.Value > max_len:
                     fp.ConcaveLength = max_len
-                    fc.Console.PrintWarning(f"ConcaveLength non può superare Wheelbase ({max_len}mm)!\n")
+                    fc.Console.PrintWarning(f"ConcaveLength cannot exceed Wheelbase ({max_len}mm)!\n")
                 elif fp.ConcaveLength.Value < 0.0:
                     fp.ConcaveLength = 0.0
             elif prop == "Wheelbase":
                 min_wb = 30.0
                 if fp.Wheelbase.Value < min_wb:
                     fp.Wheelbase = min_wb
-                    fc.Console.PrintWarning(f"Wheelbase minimo è {min_wb}mm!\n")
+                    fc.Console.PrintWarning(f"Wheelbase minimum is {min_wb}mm!\n")
                 elif fp.Wheelbase.Value > 50.0:
                     fp.Wheelbase = 50.0
-                    fc.Console.PrintWarning("Wheelbase massimo è 50mm!\n")
+                    fc.Console.PrintWarning("Wheelbase maximum is 50mm!\n")
             elif prop == "TransitionLength":
                 limit = min(fp.NoseLength.Value, fp.TailLength.Value) - 2.0
                 if limit < 1.0: limit = 1.0              
                 if fp.TransitionLength.Value > limit:
                     fp.TransitionLength = limit
-                    fc.Console.PrintWarning(f"TransitionLength accorciata a {limit}mm per stare nel Nose!\n")
+                    fc.Console.PrintWarning(f"TransitionLength shortened to {limit}mm to fit in Nose/Tail!\n")
                 elif fp.TransitionLength.Value < 0.1:
                     fp.TransitionLength = 0.1
-                    fc.Console.PrintWarning("TransitionLength minima è 0.1mm!\n")
+                    fc.Console.PrintWarning("TransitionLength minimum is 0.1mm!\n")
             elif prop == "NoseAngle":
                 max_angle = 45.0
                 if fp.NoseAngle.Value > max_angle:
                     fp.NoseAngle = max_angle
-                    fc.Console.PrintWarning(f"NoseAngle limitato a {max_angle}°!\n")
+                    fc.Console.PrintWarning(f"NoseAngle limited to {max_angle}°!\n")
                 elif fp.NoseAngle.Value < 0.0:
                     fp.NoseAngle = 0.0
             elif prop == "TailAngle":
                 max_angle = 45.0
                 if fp.TailAngle.Value > max_angle:
                     fp.TailAngle = max_angle
-                    fc.Console.PrintWarning(f"TailAngle limitato a {max_angle}°!\n")
+                    fc.Console.PrintWarning(f"TailAngle limited to {max_angle}°!\n")
                 elif fp.TailAngle.Value < 0.0:
                     fp.TailAngle = 0.0
             elif prop == "ShaperHeight":
                 if fp.ShaperHeight.Value < 0.5:
                     fp.ShaperHeight = 0.5
-                    fc.Console.PrintWarning("ShaperHeight limitata a 0.5mm (Min)!\n")
+                    fc.Console.PrintWarning("ShaperHeight limited to 0.5mm (Min)!\n")
                 if fp.ShaperHeight.Value > 50.0:
                     fp.ShaperHeight = 50.0
-                    fc.Console.PrintWarning("ShaperHeight limitata a 50.0mm (Max)!\n")
+                    fc.Console.PrintWarning("ShaperHeight limited to 50.0mm (Max)!\n")
             elif prop == "NoseFlatness":
                 if fp.NoseFlatness > 100:
                     fp.NoseFlatness = 100
@@ -305,95 +305,95 @@ class FB_Mold:
             elif prop == "VeneerThickness":
                 if fp.VeneerThickness.Value < 1.0:
                     fp.VeneerThickness = 1.0
-                    fc.Console.PrintWarning("VeneerThickness limitata a 1.0mm (Min)!\n")
+                    fc.Console.PrintWarning("VeneerThickness limited to 1.0mm (Min)!\n")
                 elif fp.VeneerThickness.Value > 3.5:
                     fp.VeneerThickness = 3.5
-                    fc.Console.PrintWarning("VeneerThickness limitata a 3.5mm (Max)!\n")
+                    fc.Console.PrintWarning("VeneerThickness limited to 3.5mm (Max)!\n")
             elif prop == "KickGap":
                 if fp.KickGap.Value < 0.0:
                     fp.KickGap = 0.0
                 elif fp.KickGap.Value > 5.0:
                     fp.KickGap = 5.0
-                    fc.Console.PrintWarning("KickGap limitata a 5.0mm (Max)!\n")
+                    fc.Console.PrintWarning("KickGap limited to 5.0mm (Max)!\n")
             elif prop == "NoseLength":
                 if fp.NoseLength.Value < 5.0:
                     fp.NoseLength = 5.0
-                    fc.Console.PrintWarning("NoseLength limitata a 5.0mm (Min)!\n")
+                    fc.Console.PrintWarning("NoseLength limited to 5.0mm (Min)!\n")
                 elif fp.NoseLength.Value > 23.0:
                     fp.NoseLength = 23.0
-                    fc.Console.PrintWarning("NoseLength limitata a 23.0mm (Max)!\n")
+                    fc.Console.PrintWarning("NoseLength limited to 23.0mm (Max)!\n")
             elif prop == "TailLength":
                 if fp.TailLength.Value < 5.0:
                     fp.TailLength = 5.0
-                    fc.Console.PrintWarning("TailLength limitata a 5.0mm (Min)!\n")
+                    fc.Console.PrintWarning("TailLength limited to 5.0mm (Min)!\n")
                 elif fp.TailLength.Value > 23.0:
                     fp.TailLength = 23.0
-                    fc.Console.PrintWarning("TailLength limitata a 23.0mm (Max)!\n")
+                    fc.Console.PrintWarning("TailLength limited to 23.0mm (Max)!\n")
             elif prop == "GuideDiameter":
                 max_diam = ((fp.MoldBaseWidth.Value - fp.MoldCoreWidth.Value) / 2.0) - 2.0
                 if fp.GuideDiameter.Value < 0.1:
                     fp.GuideDiameter = 0.1
-                    fc.Console.PrintWarning("GuideDiameter minimo è 0.1mm!\n")
+                    fc.Console.PrintWarning("GuideDiameter minimum is 0.1mm!\n")
                 elif fp.GuideDiameter.Value > max_diam:
                     fp.GuideDiameter = max_diam
-                    fc.Console.PrintWarning(f"GuideDiameter limitato a {max_diam}mm per non superare MoldBase!\n")
+                    fc.Console.PrintWarning(f"GuideDiameter limited to {max_diam}mm to fit in MoldBase!\n")
             elif prop == "MoldCoreWidth":
                 if fp.MoldCoreWidth.Value < 29.0:
                     fp.MoldCoreWidth = 29.0
-                    fc.Console.PrintWarning("MoldCoreWidth minimo è 29.0mm!\n")
+                    fc.Console.PrintWarning("MoldCoreWidth minimum is 29.0mm!\n")
                 elif fp.MoldCoreWidth.Value > 60.0:
                     fp.MoldCoreWidth = 60.0
-                    fc.Console.PrintWarning("MoldCoreWidth massimo è 60.0mm!\n")
+                    fc.Console.PrintWarning("MoldCoreWidth maximum is 60.0mm!\n")
             elif prop == "MoldCoreHeight":
                 if fp.MoldCoreHeight.Value < 5.0:
                     fp.MoldCoreHeight = 5.0
-                    fc.Console.PrintWarning("MoldCoreHeight minimo è 5.0mm!\n")                    
+                    fc.Console.PrintWarning("MoldCoreHeight minimum is 5.0mm!\n")                    
                 elif fp.MoldCoreHeight.Value > 25.0:
                     fp.MoldCoreHeight = 25.0
-                    fc.Console.PrintWarning("MoldCoreHeight massimo è 25.0mm!\n")
+                    fc.Console.PrintWarning("MoldCoreHeight maximum is 25.0mm!\n")
             elif prop == "MoldBaseWidth":
                 min_base_w = fp.MoldCoreWidth.Value + 20.0
                 if fp.MoldBaseWidth.Value < min_base_w:
                     fp.MoldBaseWidth = min_base_w
-                    fc.Console.PrintWarning(f"MoldBaseWidth minimo è MoldCoreWidth + 20mm = {min_base_w}mm!\n")
+                    fc.Console.PrintWarning(f"MoldBaseWidth minimum is MoldCoreWidth + 20mm = {min_base_w}mm!\n")
                 elif fp.MoldBaseWidth.Value > (fp.MoldCoreWidth.Value + 40.0):
                     fp.MoldBaseWidth = fp.MoldCoreWidth.Value + 40.0
-                    fc.Console.PrintWarning(f"MoldBaseWidth massimo è MoldCoreWidth + 40mm = {fp.MoldCoreWidth.Value + 40.0}mm!\n")
+                    fc.Console.PrintWarning(f"MoldBaseWidth maximum is MoldCoreWidth + 40mm = {fp.MoldCoreWidth.Value + 40.0}mm!\n")
             elif prop == "MoldBaseHeight":
                 if fp.MoldBaseHeight.Value < 0.0:
                     fp.MoldBaseHeight = 0.0
                 elif fp.MoldBaseHeight.Value > 20.0:
                     fp.MoldBaseHeight = 20.0
-                    fc.Console.PrintWarning("MoldBaseHeight massimo è 20.0mm!\n")
+                    fc.Console.PrintWarning("MoldBaseHeight maximum is 20.0mm!\n")
             elif prop == "MoldCornerRadius":
                 if fp.MoldCornerRadius.Value < 0.1:
                     fp.MoldCornerRadius = 0.1
-                    fc.Console.PrintWarning("MoldCornerRadius minimo è 0.1mm!\n")
+                    fc.Console.PrintWarning("MoldCornerRadius minimum is 0.1mm!\n")
                 elif fp.MoldCornerRadius.Value > 5.0:
                     fp.MoldCornerRadius = 5.0
-                    fc.Console.PrintWarning("MoldCornerRadius massimo è 5.0mm!\n")
+                    fc.Console.PrintWarning("MoldCornerRadius maximum is 5.0mm!\n")
             elif prop == "MoldLength":
                 min_len = fp.TotalLengthCheck.Value
                 if fp.MoldLength.Value < min_len:
                     fp.MoldLength = min_len
-                    fc.Console.PrintWarning(f"MoldLength minimo è uguale a TotalLength ({min_len}mm)!\n")
+                    fc.Console.PrintWarning(f"MoldLength minimum is equal to TotalLength ({min_len}mm)!\n")
                 elif fp.MoldLength.Value > 130.0:
                     fp.MoldLength = 130.0
-                    fc.Console.PrintWarning("MoldLength massimo è 130.0mm!\n")
+                    fc.Console.PrintWarning("MoldLength maximum is 130.0mm!\n")
             elif prop == "MoldGap":
                 min_gap = fp.VeneerThickness.Value
                 if fp.MoldGap.Value < min_gap:
                     fp.MoldGap = min_gap
-                    fc.Console.PrintWarning(f"MoldGap minimo è uguale a VeneerThickness ({min_gap}mm)!\n")
+                    fc.Console.PrintWarning(f"MoldGap minimum is equal to VeneerThickness ({min_gap}mm)!\n")
                 elif fp.MoldGap.Value > 4.0:
                     fp.MoldGap = 4.0
-                    fc.Console.PrintWarning("MoldGap massimo è 4.0mm!\n")
+                    fc.Console.PrintWarning("MoldGap maximum is 4.0mm!\n")
 
             elif prop not in ["Proxy", "Shape", "Label", "MoldType", "TotalLengthCheck", "NoseHeightCheck", "TailHeightCheck", "ValidityStatus"]:
                 if hasattr(fp, "Preset") and fp.Preset != "Custom":
                     fp.Preset = "Custom"        
         except Exception as e:
-            fc.Console.PrintError(f"Err onChanged: {e}\n")
+            fc.Console.PrintError(f"Error in onChanged: {e}\n")
         finally:
             self.is_updating_preset = False
 
@@ -569,8 +569,8 @@ class FB_Mold:
                 y_n = (wheelbase/2) + truck_hole_len + kick_gap + nose_len
                 nose_start_y = y_n - nose_taper
 
-                p0_n = fc.Vector(w_half, nose_start_y, 0)      # Inizio Taper
-                p3_n = fc.Vector(half_ntw, y_n, 0)            # Angolo Tip
+                p0_n = fc.Vector(w_half, nose_start_y, 0)      # Taper Start
+                p3_n = fc.Vector(half_ntw, y_n, 0)            # Tip Angle
                 p1_n = fc.Vector(w_half, nose_start_y + (nose_taper * nose_flatness), 0)
                 p2_n = fc.Vector(half_ntw + (w_half - half_ntw) * nose_flatness, y_n, 0)
                 bz_nose = Part.BezierCurve()
@@ -578,8 +578,8 @@ class FB_Mold:
                 
                 y_t = -((wheelbase/2) + truck_hole_len + kick_gap + tail_len)
                 tail_start_y = y_t + tail_taper
-                p0_t = fc.Vector(w_half, tail_start_y, 0)      # Inizio Taper
-                p3_t = fc.Vector(half_ttw, y_t, 0)            # Angolo Tip
+                p0_t = fc.Vector(w_half, tail_start_y, 0)      # Taper Start
+                p3_t = fc.Vector(half_ttw, y_t, 0)            # Tip Angle
                 p1_t = fc.Vector(w_half, tail_start_y - (tail_taper * tail_flatness), 0)
                 p2_t = fc.Vector(half_ttw + (w_half - half_ttw) * tail_flatness, y_t, 0)
                 bz_tail = Part.BezierCurve()
@@ -619,6 +619,6 @@ class FB_Mold:
                     fp.Shape = cut_board.cut(drill_comp)               
 
         except Exception as e:
-            fc.Console.PrintError(f"\n--- ERRORE FATALE ---\n{str(e)}\n")
+            fc.Console.PrintError(f"\n--- FATAL ERROR ---\n{str(e)}\n")
             traceback.print_exc()
             fp.Shape = Part.makeBox(20,20,20)

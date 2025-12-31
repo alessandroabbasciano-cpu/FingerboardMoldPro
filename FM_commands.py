@@ -18,7 +18,7 @@ class CmdCreateMold:
         return {
             'MenuText': 'New Mold',
             'Pixmap': os.path.join(ICONDIR, 'CreateMold.svg'),
-            'ToolTip': 'Crea un oggetto parametrico Mold (Maschio/Femmina/Dima)'
+            'ToolTip': 'Create a parametric Mold object (Male/Female/Template)'
         }
     def Activated(self):
         import FM_features
@@ -68,24 +68,24 @@ class CmdSavePreset:
     
     def GetResources(self):
         return {
-            'MenuText': 'Salva Preset',
-            'ToolTip': 'Salva le misure attuali nel file dei Preset',
+            'MenuText': 'Save Preset',
+            'ToolTip': 'Save current measurements to the Presets file',
             'Pixmap': os.path.join(ICONDIR, 'SavePreset.svg')
         }
 
     def Activated(self):
         sel = fcg.Selection.getSelection()
         if not sel:
-            fc.Console.PrintWarning("Nessun oggetto selezionato.\n")
+            fc.Console.PrintWarning("No object selected.\n")
             return        
         obj = sel[0]
         if not hasattr(obj, "Wheelbase"):
-            fc.Console.PrintError("L'oggetto selezionato non è un Mold valido.\n")
+            fc.Console.PrintError("The selected object is not a valid Mold.\n")
             return
-        text, ok = QtGui.QInputDialog.getText(None, "Salva Preset", "Nome del nuovo preset:")
+        text, ok = QtGui.QInputDialog.getText(None, "Save Preset", "New preset name:")
         if not ok or not text:
-            return # Utente ha annullato
-        preset_name = text.strip().upper() # Salviamo in maiuscolo per stile
+            return # User cancelled
+        preset_name = text.strip().upper() # Save in uppercase for style
         new_data = {}
         try:
             for param in PARAMS_TO_SAVE:
@@ -95,7 +95,7 @@ class CmdSavePreset:
                 else:
                     new_data[param] = val
         except Exception as e:
-            fc.Console.PrintError(f"Errore lettura parametri: {e}\n")
+            fc.Console.PrintError(f"Error reading parameters: {e}\n")
             return
         existing_data = {}
         if os.path.exists(PRESET_FILE):
@@ -103,15 +103,15 @@ class CmdSavePreset:
                 with open(PRESET_FILE, 'r') as f:
                     existing_data = json.load(f)
             except:
-                pass # Se il file è rotto, lo sovrascriviamo
+                pass # If file is broken, overwrite it
         
         existing_data[preset_name] = new_data       
         try:
             with open(PRESET_FILE, 'w') as f:
                 json.dump(existing_data, f, indent=4)
-            fc.Console.PrintMessage(f"Preset '{preset_name}' salvato con successo!\n")
+            fc.Console.PrintMessage(f"Preset '{preset_name}' saved successfully!\n")
         except Exception as e:
-            fc.Console.PrintError(f"Errore scrittura file: {e}\n")
+            fc.Console.PrintError(f"Error writing file: {e}\n")
             return
         if hasattr(obj, "Proxy") and hasattr(obj.Proxy, "reload_presets_list"):
             obj.Proxy.reload_presets_list(obj)
@@ -120,19 +120,20 @@ class CmdSavePreset:
             obj.Proxy.is_updating_preset = False
     def IsActive(self):
         return len(fcg.Selection.getSelection()) > 0
+    
 class CmdDeletePreset:
-    """Comando per eliminare un Preset esistente dal file JSON"""
+    """Command to delete an existing Preset from JSON file"""
     
     def GetResources(self):
         return {
-            'MenuText': 'Elimina Preset',
-            'ToolTip': 'Rimuove definitivamente un preset salvato',
+            'MenuText': 'Delete Preset',
+            'ToolTip': 'Permanently remove a saved preset',
             'Pixmap': os.path.join(ICONDIR, 'DeletePreset.svg')
         }
 
     def Activated(self):
         if not os.path.exists(PRESET_FILE):
-            fc.Console.PrintWarning("Nessun file preset trovato.\n")
+            fc.Console.PrintWarning("No preset file found.\n")
             return
 
         data = {}
@@ -140,28 +141,28 @@ class CmdDeletePreset:
             with open(PRESET_FILE, 'r') as f:
                 data = json.load(f)
         except Exception as e:
-            fc.Console.PrintError(f"Errore lettura file: {e}\n")
+            fc.Console.PrintError(f"Error reading file: {e}\n")
             return
 
         preset_names = sorted(data.keys())
         if not preset_names:
-            fc.Console.PrintWarning("Il file dei preset è vuoto.\n")
+            fc.Console.PrintWarning("The preset file is empty.\n")
             return
 
         item, ok = QtGui.QInputDialog.getItem(
             None, 
-            "Elimina Preset", 
-            "Seleziona il preset da ELIMINARE:", 
+            "Delete Preset", 
+            "Select preset to DELETE:", 
             preset_names, 
             0, 
-            False # False = Non modificabile (devi scegliere dalla lista)
+            False # False = Not editable (must choose from list)
         )
 
         if ok and item:
             confirm = QtGui.QMessageBox.question(
                 None,
-                "Conferma Eliminazione",
-                f"Sei sicuro di voler eliminare per sempre '{item}'?",
+                "Confirm Deletion",
+                f"Are you sure you want to permanently delete '{item}'?",
                 QtGui.QMessageBox.Yes | QtGui.QMessageBox.No
             )
             
@@ -170,7 +171,7 @@ class CmdDeletePreset:
                 try:
                     with open(PRESET_FILE, 'w') as f:
                         json.dump(data, f, indent=4)
-                    fc.Console.PrintMessage(f"Preset '{item}' eliminato.\n")
+                    fc.Console.PrintMessage(f"Preset '{item}' deleted.\n")
                     
                     doc = fc.activeDocument()
                     if doc:
@@ -179,7 +180,7 @@ class CmdDeletePreset:
                                 obj.Proxy.reload_presets_list(obj)
                                 
                 except Exception as e:
-                    fc.Console.PrintError(f"Errore salvataggio file: {e}\n")
+                    fc.Console.PrintError(f"Error saving file: {e}\n")
 
     def IsActive(self):
         return True
@@ -188,8 +189,8 @@ class CmdExportStl:
     
     def GetResources(self):
         return {
-            'MenuText': 'Esporta STL Batch',
-            'ToolTip': 'Genera e salva i file STL per Maschio, Femmina e Shaper',
+            'MenuText': 'Batch Export STL',
+            'ToolTip': 'Generates and saves STL files for Male, Female and Shaper',
             'Pixmap': os.path.join(ICONDIR, 'ExportSTL.svg')
         }
 
@@ -197,19 +198,19 @@ class CmdExportStl:
         import Mesh # type: ignore 
         sel = fcg.Selection.getSelection()
         if not sel:
-            fc.Console.PrintWarning("Seleziona un oggetto Mold da esportare.\n")
+            fc.Console.PrintWarning("Select a Mold object to export.\n")
             return
         obj = sel[0]
         if not hasattr(obj, "MoldType"):
-            fc.Console.PrintError("L'oggetto selezionato non è valido.\n")
+            fc.Console.PrintError("The selected object is not valid.\n")
             return
-        save_dir = QtGui.QFileDialog.getExistingDirectory(None, "Seleziona Cartella Export")
+        save_dir = QtGui.QFileDialog.getExistingDirectory(None, "Select Export Folder")
         if not save_dir:
-            return # Annullato dall'utente
+            return # Cancelled by user
         original_type = obj.MoldType
         original_label = obj.Label      
         parts_to_export = ["Male_Mold", "Female_Mold", "Shaper_Template"]       
-        fc.Console.PrintMessage("--- Inizio Export Batch ---\n")        
+        fc.Console.PrintMessage("--- Batch Export Started ---\n")        
         try:
             for m_type in parts_to_export:
                 obj.MoldType = m_type
@@ -218,13 +219,13 @@ class CmdExportStl:
                 filename = f"{safe_label}_{m_type}.stl"
                 filepath = os.path.join(save_dir, filename)
                 Mesh.export([obj], filepath, tolerance=0.01)
-                fc.Console.PrintMessage(f"Salvato: {filename}\n")
+                fc.Console.PrintMessage(f"Saved: {filename}\n")
         except Exception as e:
-            fc.Console.PrintError(f"Errore durante l'export: {e}\n")
+            fc.Console.PrintError(f"Error during export: {e}\n")
         finally:
             obj.MoldType = original_type
             obj.recompute()
-            fc.Console.PrintMessage("--- Export Completato ---\n")
+            fc.Console.PrintMessage("--- Export Completed ---\n")
     def IsActive(self):
         return len(fcg.Selection.getSelection()) > 0
         
