@@ -8,6 +8,7 @@ A parametric Workbench for FreeCAD to design professional fingerboard molds.
 * **Shaper Templates**: Generates matching cutting templates with "Organic" transitions.
 * **Presets System**: Save and load your favorite shapes (JSON based).
 * **Batch Export**: Export Male, Female, and Shaper STL files in one click.
+
 ![Mod preview](preview.png)
 
 ## Installation
