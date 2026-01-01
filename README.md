@@ -1,6 +1,6 @@
 # Fingerboard Mold Pro
 
-A professional parametric Workbench for FreeCAD designed to generate high-precision fingerboard molds.
+A professional parametric Workbench for FreeCAD, designed to generate high-precision fingerboard molds.
 
 ![Mod preview](preview.png)
 
