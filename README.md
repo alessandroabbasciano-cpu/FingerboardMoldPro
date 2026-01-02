@@ -90,3 +90,8 @@ Don't want to re-enter your numbers every time?
 
 ## License
 This workbench is licensed under the **LGPLv2.1** (same as FreeCAD).  
+
+---
+
+## Warning: 
+Using this software may cause an uncontrollable urge to sand tiny pieces of wood at 3 AM.
