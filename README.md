@@ -18,7 +18,7 @@ A professional parametric Workbench for FreeCAD, designed to generate high-preci
 ### Method 1: Manual Installation
 Since this workbench is not yet in the official Addon Manager registry, please install it manually:
 
-1.  **Download** this repository (Click the green "Code" button -> "Download ZIP") and extract it.
+1.  **Download** this repository "Download ZIP" and extract it.
 2.  Locate your FreeCAD **Mod** directory:
     * **Windows**: `%APPDATA%\FreeCAD\Mod\`
     * **Linux**: `~/.local/share/FreeCAD/Mod/`
