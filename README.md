@@ -1,8 +1,10 @@
 # Fingerboard Mold Pro
 
-A professional parametric Workbench for FreeCAD, designed to generate high-precision fingerboard molds.
+A professional parametric workbench for FreeCAD, designed to generate high-precision molds for **fingerboarding** (miniature skateboarding).
 
-![Mod preview](preview.png)
+It allows makers to generate organic, customizable 3D-printable molds used to press and shape wooden veneers into finished fingerboard decks.
+
+![Mod preview](./images/preview.png)
 
 ## 🚀 Key Features
 * **Loft & Bezier Engine**: Generates organic shapes and fluid transitions (no simple geometric arcs).
@@ -15,16 +17,18 @@ A professional parametric Workbench for FreeCAD, designed to generate high-preci
 
 ## 📦 Installation
 
-### Method 1: Manual Installation
-Since this workbench is not yet in the official Addon Manager registry, please install it manually:
+Since this workbench is not yet available in the official Addon Manager registry, please install it manually:
 
-1.  **Download** this repository "Download ZIP" and extract it.
-2.  Locate your FreeCAD **Mod** directory:
-    * **Windows**: `%APPDATA%\FreeCAD\Mod\`
-    * **Linux**: `~/.local/share/FreeCAD/Mod/`
-    * **macOS**: `~/Library/Application Support/FreeCAD/Mod/`
-3.  Copy the extracted `FingerboardMoldPro` folder into the **Mod** directory.
-4.  **Restart FreeCAD**.
+1. **Download** this repository as a ZIP file and extract it.
+
+2. **Locate your FreeCAD Addon folder**:
+    * Open FreeCAD and launch the **Addon Manager**
+    * **Ensure your Addon Manager is up to date**.
+    * Click on the **"Open Addon Folder"** option:![alt text](./images/am_oaf.png)
+
+3. **Copy** the extracted `FingerboardMoldPro` folder into that directory you just opened.
+
+4. **Restart FreeCAD** to load the new workbench.
 
 ---
 
@@ -60,7 +64,7 @@ Don't want to re-enter your numbers every time?
 1.  Select the **`Board_Preview`** object.
 2.  Click the **Export Batch STL** icon (Green arrow).
 3.  Choose a destination folder.
-4.  The script will automatically generate single files for printing:
+4.  The script will automatically generate individual files for printing:
     * `YourBoardName_Male_Mold.stl`
     * `YourBoardName_Female_Mold.stl`
     * `YourBoardName_Shaper_Template.stl`
