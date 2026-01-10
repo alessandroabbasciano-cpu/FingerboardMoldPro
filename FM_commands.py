@@ -11,8 +11,10 @@ PARAMS_TO_SAVE = [
     "NoseAngle", "TailAngle", "ConcaveLength", 
     "NoseFlatness", "TailFlatness", 
     "NoseTaperStart", "TailTaperStart",
-    "TransitionLength", "TransitionSmoothness"
+    "TransitionLength", "KickGap", 
+    "TubWidth" 
 ]
+
 class CmdCreateMold:
     def GetResources(self):
         return {
@@ -51,11 +53,11 @@ class CmdCreateMold:
                 "MoldBaseWidth", "MoldBaseHeight", "GuideDiameter", "MoldCornerRadius",
                 "MoldCoreWidth", "MoldCoreHeight", "MoldLength", "MoldGap",
                 "BoardWidth", "Wheelbase", "ConcaveDrop", "ConcaveLength",
-                "CamberHeight", "VeneerThickness", "TransitionLength", "TransitionSmoothness", "KickGap",
+                "CamberHeight", "VeneerThickness", "TransitionLength", "KickGap",
                 "NoseLength", "TailLength", "NoseAngle", "TailAngle",
                 "TruckHoleDiam", "TruckHoleDistL", "TruckHoleDistW", "ShaperHeight",
-                "NoseFlatness", "TailFlatness", "NoseTaperStart", "TailTaperStart"
-            ]
+                "NoseFlatness", "TailFlatness", "NoseTaperStart", "TailTaperStart",
+                "TubWidth", "AddFillet"             ]
 
             for prop in props_to_link:
                 if hasattr(master, prop) and hasattr(slave_obj, prop):

@@ -5,29 +5,65 @@ import traceback
 import json
 import os
 
-def create_profile_wire(z_off, width, radius, is_flat=False, angle_rot=0):
-    if is_flat or radius > 50000:
-        p1 = fc.Vector(-width/2, 0, z_off)
-        p2 = fc.Vector(width/2, 0, z_off)
-        w = Part.makePolygon([p1, p2])
+# --- GEOMETRY UTILS ---
+
+def create_profile_wire(z_off, width, radius, is_flat=False, angle_rot=0, flat_width=0.0):
+    force_flat_geom = is_flat or radius > 50000
+    if flat_width > 0.1:
+        side_w = (width - flat_width) / 2.0
+        if side_w < 0.01: side_w = 0.01
+        delta_z = 0.0
+        if not force_flat_geom:
+            arg = radius**2 - side_w**2
+            if arg < 0: arg = 0
+            delta_z = radius - math.sqrt(arg)
+
+        z_edge = z_off + delta_z
+        p_far_left = fc.Vector(-width/2, 0, z_edge)
+        p_flat_left = fc.Vector(-flat_width/2, 0, z_off)
+        p_flat_right = fc.Vector(flat_width/2, 0, z_off)
+        p_far_right = fc.Vector(width/2, 0, z_edge)
+        
+        if force_flat_geom:
+            edge_left = Part.makeLine(p_far_left, p_flat_left)
+            edge_flat = Part.makeLine(p_flat_left, p_flat_right)
+            edge_right = Part.makeLine(p_flat_right, p_far_right)
+        else:
+            angle_tot = math.asin(side_w / radius)
+            angle_mid = angle_tot / 2.0
+            x_m_rel = radius * math.sin(angle_mid)
+            z_m_rel = radius * (1 - math.cos(angle_mid))
+            p_mid_right = fc.Vector(flat_width/2 + x_m_rel, 0, z_off + z_m_rel)
+            p_mid_left = fc.Vector(-(flat_width/2 + x_m_rel), 0, z_off + z_m_rel)
+            edge_right = Part.Arc(p_flat_right, p_mid_right, p_far_right).toShape()
+            edge_left = Part.Arc(p_far_left, p_mid_left, p_flat_left).toShape()
+            edge_flat = Part.makeLine(p_flat_left, p_flat_right)
+            
+        w = Part.Wire([edge_left, edge_flat, edge_right])
     else:
-        h_w = width / 2.0
-        arg = radius**2 - h_w**2
-        if arg < 0: arg = 0
-        delta_z = math.sqrt(arg)
-        z_pt = (z_off + radius) - delta_z
-        p1 = fc.Vector(-h_w, 0, z_pt)
-        p2 = fc.Vector(h_w, 0, z_pt)
-        pm = fc.Vector(0, 0, z_off)
-        w = Part.Arc(p1, pm, p2).toShape()
-        if angle_rot != 0:
-            w.rotate(fc.Vector(0,0,0), fc.Vector(1,0,0), angle_rot)
+        if force_flat_geom:
+            p1 = fc.Vector(-width/2, 0, z_off)
+            p2 = fc.Vector(width/2, 0, z_off)
+            w = Part.makePolygon([p1, p2])
+        else:
+            h_w = width / 2.0
+            arg = radius**2 - h_w**2
+            if arg < 0: arg = 0
+            delta_z = math.sqrt(arg)
+            z_pt = (z_off + radius) - delta_z
+            p1 = fc.Vector(-h_w, 0, z_pt)
+            p2 = fc.Vector(h_w, 0, z_pt)
+            pm = fc.Vector(0, 0, z_off)
+            w = Part.Arc(p1, pm, p2).toShape()
+
+    if angle_rot != 0:
+        w.rotate(fc.Vector(0,0,0), fc.Vector(1,0,0), angle_rot)
     return w
 
-def create_fillet_fillers(core_width, length, z_start, direction_up=True):
-    DEFAULT_FILLET = 10.0
+def create_fillet_fillers(core_width, length, z_start, r_fillet, direction_up=True):
+    # Now accepts r_fillet as argument
     x_start = core_width / 2.0
-    r = DEFAULT_FILLET    
+    r = r_fillet    
     filler = Part.makeBox(r, length, r)
     if direction_up:
         filler.translate(fc.Vector(x_start, -length/2.0, z_start))
@@ -103,30 +139,38 @@ class FB_Mold:
         obj.addProperty("App::PropertyLength", "MoldBaseHeight", "Mold Base").MoldBaseHeight = 10.0
         obj.addProperty("App::PropertyLength", "GuideDiameter", "Mold Base").GuideDiameter = 6.5
         obj.addProperty("App::PropertyLength", "MoldCornerRadius", "Mold Base").MoldCornerRadius = 5.0 
+        # --- NEW PROPERTY: FILLET ON/OFF ---
+        obj.addProperty("App::PropertyBool", "AddFillet", "Mold Base").AddFillet = True
+        
         obj.addProperty("App::PropertyLength", "MoldCoreWidth", "Mold Core").MoldCoreWidth = 45.0
         obj.addProperty("App::PropertyLength", "MoldCoreHeight", "Mold Core").MoldCoreHeight = 5.0
         obj.addProperty("App::PropertyLength", "MoldLength", "Mold Core").MoldLength = 115.0
         obj.addProperty("App::PropertyLength", "MoldGap", "Mold Core").MoldGap = 2.5 
-        obj.addProperty("App::PropertyLength", "BoardWidth", "Board Geometry").BoardWidth = 32.6
-        obj.addProperty("App::PropertyLength", "Wheelbase", "Board Geometry").Wheelbase = 45.0
-        obj.addProperty("App::PropertyLength", "ConcaveDrop", "Board Geometry").ConcaveDrop = 2.2
-        obj.addProperty("App::PropertyLength", "ConcaveLength", "Board Geometry").ConcaveLength = 42.0
+        
+        obj.addProperty("App::PropertyLength", "BoardWidth", "Board Geometry").BoardWidth = 34.0
+        obj.addProperty("App::PropertyLength", "Wheelbase", "Board Geometry").Wheelbase = 44.0
+        obj.addProperty("App::PropertyLength", "ConcaveDrop", "Board Geometry").ConcaveDrop = 1.5
+        obj.addProperty("App::PropertyLength", "ConcaveLength", "Board Geometry").ConcaveLength = 22.0
+        obj.addProperty("App::PropertyLength", "TubWidth", "Board Geometry").TubWidth = 8.0
         obj.addProperty("App::PropertyLength", "VeneerThickness", "Board Geometry").VeneerThickness = 2.5
-        obj.addProperty("App::PropertyLength", "TransitionLength", "Kicks").TransitionLength = 2.5
-        obj.addProperty("App::PropertyPercent", "TransitionSmoothness", "Kicks").TransitionSmoothness = 60
-        obj.addProperty("App::PropertyLength", "KickGap", "Kicks").KickGap = 1.5
+        
+        obj.addProperty("App::PropertyLength", "TransitionLength", "Kicks").TransitionLength = 8.0
+        obj.addProperty("App::PropertyLength", "KickGap", "Kicks").KickGap = 1.0
         obj.addProperty("App::PropertyLength", "NoseLength", "Kicks").NoseLength = 16.5
         obj.addProperty("App::PropertyLength", "TailLength", "Kicks").TailLength = 16.5
-        obj.addProperty("App::PropertyAngle", "NoseAngle", "Kicks").NoseAngle = 24.45
-        obj.addProperty("App::PropertyAngle", "TailAngle", "Kicks").TailAngle = 24.45
+        obj.addProperty("App::PropertyAngle", "NoseAngle", "Kicks").NoseAngle = 24.00
+        obj.addProperty("App::PropertyAngle", "TailAngle", "Kicks").TailAngle = 24.00
+        
         obj.addProperty("App::PropertyLength", "TruckHoleDiam", "Truck Holes").TruckHoleDiam = 1.7
         obj.addProperty("App::PropertyLength", "TruckHoleDistL", "Truck Holes").TruckHoleDistL = 7.5
         obj.addProperty("App::PropertyLength", "TruckHoleDistW", "Truck Holes").TruckHoleDistW = 5.5
+        
         obj.addProperty("App::PropertyLength", "ShaperHeight", "Shaper").ShaperHeight = 10.0
         obj.addProperty("App::PropertyPercent", "NoseFlatness", "Shaper").NoseFlatness = 60
         obj.addProperty("App::PropertyPercent", "TailFlatness", "Shaper").TailFlatness = 60
         obj.addProperty("App::PropertyLength", "NoseTaperStart", "Shaper").NoseTaperStart = 22.0
         obj.addProperty("App::PropertyLength", "TailTaperStart", "Shaper").TailTaperStart = 22.0
+        
         obj.addProperty("App::PropertyEnumeration", "NoseShape", "Shaper")
         obj.addProperty("App::PropertyEnumeration", "TailShape", "Shaper")
         self.reload_shapes_list(obj)
@@ -134,12 +178,14 @@ class FB_Mold:
         self.reload_presets_list(obj)
         obj.addProperty("App::PropertyEnumeration", "MoldType", "Base")
         obj.MoldType = ["Board_Preview", "Male_Mold", "Female_Mold", "Shaper_Template"]
+        
         obj.addProperty("App::PropertyLength", "TotalLengthCheck", "Info")
         obj.setEditorMode("TotalLengthCheck", 1)
         obj.addProperty("App::PropertyLength", "NoseHeightCheck", "Info")
         obj.setEditorMode("NoseHeightCheck", 1)    
         obj.addProperty("App::PropertyLength", "TailHeightCheck", "Info")
         obj.setEditorMode("TailHeightCheck", 1)
+        
         self.is_updating_preset = False
         obj.Proxy = self
 
@@ -213,6 +259,10 @@ class FB_Mold:
             return       
         if prop == "MoldType":
              fp.touch()
+        
+        # --- FORCE UPDATE ON ADD FILLET CHANGE ---
+        if prop == "AddFillet":
+             fp.touch() # Force recompute
 
         self.is_updating_preset = True
         try:
@@ -235,6 +285,11 @@ class FB_Mold:
                 elif fp.BoardWidth.Value > fp.MoldCoreWidth.Value:                                                                                                                          
                     fp.BoardWidth = fp.MoldCoreWidth.Value
                     fc.Console.PrintWarning(f"BoardWidth cannot exceed MoldCoreWidth ({fp.MoldCoreWidth.Value}mm)!\n")
+            
+            elif prop == "TubWidth":
+                if fp.TubWidth.Value > (fp.BoardWidth.Value - 2.0):
+                    fp.TubWidth = fp.BoardWidth.Value - 2.0
+            
             elif prop == "ConcaveDrop":
                 max_val = 3.4
                 if fp.ConcaveDrop.Value > max_val:
@@ -243,10 +298,10 @@ class FB_Mold:
                 elif fp.ConcaveDrop.Value < 0.0:
                     fp.ConcaveDrop = 0.0
             elif prop == "ConcaveLength":
-                max_len = fp.Wheelbase.Value
+                max_len = fp.Wheelbase.Value - fp.TruckHoleDistL.Value
                 if fp.ConcaveLength.Value > max_len:
                     fp.ConcaveLength = max_len
-                    fc.Console.PrintWarning(f"ConcaveLength cannot exceed Wheelbase ({max_len}mm)!\n")
+                    fc.Console.PrintWarning(f"Based on Wheelbase cannot exceed ({max_len}mm)!\n")
                 elif fp.ConcaveLength.Value < 0.0:
                     fp.ConcaveLength = 0.0
             elif prop == "Wheelbase":
@@ -297,11 +352,6 @@ class FB_Mold:
                     fp.TailFlatness = 100
                 elif fp.TailFlatness < 0:
                     fp.TailFlatness = 0
-            elif prop == "TransitionSmoothness":
-                if fp.TransitionSmoothness > 100:
-                    fp.TransitionSmoothness = 100
-                elif fp.TransitionSmoothness < 0:
-                    fp.TransitionSmoothness = 0
             elif prop == "VeneerThickness":
                 if fp.VeneerThickness.Value < 1.0:
                     fp.VeneerThickness = 1.0
@@ -352,10 +402,10 @@ class FB_Mold:
                     fp.MoldCoreHeight = 25.0
                     fc.Console.PrintWarning("MoldCoreHeight maximum is 25.0mm!\n")
             elif prop == "MoldBaseWidth":
-                min_base_w = fp.MoldCoreWidth.Value + 20.0
+                min_base_w = fp.MoldCoreWidth.Value
                 if fp.MoldBaseWidth.Value < min_base_w:
                     fp.MoldBaseWidth = min_base_w
-                    fc.Console.PrintWarning(f"MoldBaseWidth minimum is MoldCoreWidth + 20mm = {min_base_w}mm!\n")
+                    fc.Console.PrintWarning(f"MoldBaseWidth minimum is MoldCoreWidth = {min_base_w}mm!\n")
                 elif fp.MoldBaseWidth.Value > (fp.MoldCoreWidth.Value + 40.0):
                     fp.MoldBaseWidth = fp.MoldCoreWidth.Value + 40.0
                     fc.Console.PrintWarning(f"MoldBaseWidth maximum is MoldCoreWidth + 40mm = {fp.MoldCoreWidth.Value + 40.0}mm!\n")
@@ -389,7 +439,7 @@ class FB_Mold:
                     fp.MoldGap = 4.0
                     fc.Console.PrintWarning("MoldGap maximum is 4.0mm!\n")
 
-            elif prop not in ["Proxy", "Shape", "Label", "MoldType", "TotalLengthCheck", "NoseHeightCheck", "TailHeightCheck", "ValidityStatus"]:
+            elif prop not in ["Proxy", "Shape", "Label", "MoldType", "TotalLengthCheck", "NoseHeightCheck", "TailHeightCheck", "ValidityStatus", "AddFillet"]:
                 if hasattr(fp, "Preset") and fp.Preset != "Custom":
                     fp.Preset = "Custom"        
         except Exception as e:
@@ -401,119 +451,178 @@ class FB_Mold:
         try:
             OVERRUN_MARGIN = 4.0
             EXTRUSION_LIMIT = 100.0
-            raw_smoothness = fp.TransitionSmoothness
-            safe_percent = max(0, min(100, int(raw_smoothness)))
-            BSPLINE_FACTOR = 0.1 + ((safe_percent / 100.0) * 0.5)
+            
+            # --- CLAMP PARAMS ---
             core_width = clamp(fp.MoldCoreWidth.Value, 29.0, 60.0)
             core_base_depth = clamp(fp.MoldCoreHeight.Value, 5.0, 25.0)
-            base_width = clamp(fp.MoldBaseWidth.Value, (core_width + 20.0), (core_width + 40.0))
+            base_width = clamp(fp.MoldBaseWidth.Value, core_width, (core_width + 40.0))
             base_height = clamp(fp.MoldBaseHeight.Value, 0.0, 20.0)
             M_Radius = clamp(fp.MoldCornerRadius.Value, 0.1, 5.0)
             board_width = clamp(fp.BoardWidth.Value, 29.0, core_width)
             wheelbase = clamp(fp.Wheelbase.Value, 30.0, 50.0)
             concave_depth = clamp(fp.ConcaveDrop.Value, 0.0, 3.4)
-            concave_len = clamp(fp.ConcaveLength.Value, 0.1, wheelbase)
-            camber = 0.0
-            kick_gap = clamp(fp.KickGap.Value, 0.0, 5.0)
-            nose_len = clamp(fp.NoseLength.Value, 5.0, 23.0)
-            tail_len = clamp(fp.TailLength.Value, 5.0, 23.0)
-            trans_len = clamp(fp.TransitionLength.Value, 0.0, min(nose_len, tail_len)/2.0)
-            angle_nose = clamp(fp.NoseAngle.Value, 0.0, 45.0)
-            angle_tail = clamp(fp.TailAngle.Value, 0.0, 45.0)
+            
+            tub_width = 0.0
+            if hasattr(fp, "TubWidth"):
+                tub_width = clamp(fp.TubWidth.Value, 0.0, board_width - 2.0)
+            
             truck_hole_len = fp.TruckHoleDistL.Value
             truck_hole_width = fp.TruckHoleDistW.Value
             truck_hole_diam = fp.TruckHoleDiam.Value
+            
+            concave_len = clamp(fp.ConcaveLength.Value, 0.1, wheelbase - truck_hole_len)
+            camber = 0.0
+            kick_gap = clamp(fp.KickGap.Value, 0.5, 5.0)
+            nose_len = clamp(fp.NoseLength.Value, 5.0, 23.0)
+            tail_len = clamp(fp.TailLength.Value, 5.0, 23.0)
+            
+            angle_nose = clamp(fp.NoseAngle.Value, 0.0, 45.0)
+            angle_tail = clamp(fp.TailAngle.Value, 0.0, 45.0)
+            
+            # Calculate Radius from Transition Length
+            trans_len = clamp(fp.TransitionLength.Value, 0.1, 10.0)
+            
+            sin_n = math.sin(math.radians(angle_nose))
+            rad_nose = (trans_len / sin_n) if sin_n > 0.001 else 500.0
+            
+            sin_t = math.sin(math.radians(angle_tail))
+            rad_tail = (trans_len / sin_t) if sin_t > 0.001 else 500.0
+            
+            rad_nose = clamp(rad_nose, 2.0, 1000.0)
+            rad_tail = clamp(rad_tail, 2.0, 1000.0)
+            
             fp.TotalLengthCheck = wheelbase + (2 * truck_hole_len) + (2 * kick_gap) + nose_len + tail_len
             board_len = fp.TotalLengthCheck.Value
-            mold_len = clamp(fp.MoldLength.Value, board_len,130.0)            
+            mold_len = clamp(fp.MoldLength.Value, board_len, 130.0)            
             veneer_thick = clamp(fp.VeneerThickness.Value, 2.0, 3.5)
             mold_gap = clamp(fp.MoldGap.Value, veneer_thick, 4.0)
             guide_diam = clamp(fp.GuideDiameter.Value, 0.1, (((base_width - core_width) / 2.0) - 2.0))
             shaper_height = clamp(fp.ShaperHeight.Value, 0.5, 50.0)
-            raw_n_flat = fp.NoseFlatness 
-            nose_flatness = float(raw_n_flat) / 100.0 
-            nose_flatness = clamp(nose_flatness, 0.0, 1.0)
-            raw_t_flat = fp.TailFlatness
-            tail_flatness = float(raw_t_flat) / 100.0
-            tail_flatness = clamp(tail_flatness, 0.0, 1.0)
-            nose_taper = fp.NoseTaperStart.Value
-            tail_taper = fp.TailTaperStart.Value
-            CALIBRATION_FACTOR = 0.90
-            drop_factor = 1.0 - BSPLINE_FACTOR
-            h_nose_raw = (nose_len - (trans_len * drop_factor)) * math.tan(math.radians(angle_nose))
-            h_tail_raw = (tail_len - (trans_len * drop_factor)) * math.tan(math.radians(angle_tail))
-            fp.NoseHeightCheck = h_nose_raw * CALIBRATION_FACTOR
-            fp.TailHeightCheck = h_tail_raw * CALIBRATION_FACTOR
             
-            if concave_depth > 0.01:
-               radius_concave = (concave_depth / 2.0) + ((board_width**2) / (8.0 * concave_depth))
+            # --- Check Heights ---
+            limit_y_nose = rad_nose * math.sin(math.radians(angle_nose))
+            if nose_len <= limit_y_nose:
+                arg = rad_nose**2 - nose_len**2
+                if arg < 0: arg = 0
+                h_nose_raw = rad_nose - math.sqrt(arg)
+            else:
+                h_curve = rad_nose - (rad_nose * math.cos(math.radians(angle_nose)))
+                h_lin = (nose_len - limit_y_nose) * math.tan(math.radians(angle_nose))
+                h_nose_raw = h_curve + h_lin
+            
+            limit_y_tail = rad_tail * math.sin(math.radians(angle_tail))
+            if tail_len <= limit_y_tail:
+                arg = rad_tail**2 - tail_len**2
+                if arg < 0: arg = 0
+                h_tail_raw = rad_tail - math.sqrt(arg)
+            else:
+                h_curve = rad_tail - (rad_tail * math.cos(math.radians(angle_tail)))
+                h_lin = (tail_len - limit_y_tail) * math.tan(math.radians(angle_tail))
+                h_tail_raw = h_curve + h_lin
+
+            fp.NoseHeightCheck = h_nose_raw
+            fp.TailHeightCheck = h_tail_raw
+
+            # --- CONCAVE CALCULATION ---
+            eff_width_half = (board_width - tub_width) / 2.0
+            if concave_depth > 0.01 and eff_width_half > 0.1:
+               radius_concave = (eff_width_half**2 + concave_depth**2) / (2.0 * concave_depth)
             else:
                 radius_concave = 100000.0
             
             flat_zone_len = wheelbase + (2 * truck_hole_len) + (2 * kick_gap)
-            y_kick_start_nose = (flat_zone_len / 2.0) + trans_len
+            y_kick_start_nose = flat_zone_len / 2.0
             y_kick_start_tail = -y_kick_start_nose
-            half_concave_act = min(concave_len / 2.0, abs(y_kick_start_nose) - 0.5)
+            
+            y_concave_end = concave_len / 2.0
+            
             y_tip_nose = mold_len/2.0 + OVERRUN_MARGIN
             y_tip_tail = -(mold_len/2.0 + OVERRUN_MARGIN)
             
-            dz_trans_t = trans_len * math.tan(math.radians(angle_tail)) * BSPLINE_FACTOR
-            dz_trans_n = trans_len * math.tan(math.radians(angle_nose)) * BSPLINE_FACTOR
-            z_kick_start_t = camber + dz_trans_t
-            z_kick_start_n = camber + dz_trans_n
-            z_tip_t = z_kick_start_t + ((abs(y_tip_tail) - abs(y_kick_start_tail)) * math.tan(math.radians(angle_tail)))
-            z_tip_n = z_kick_start_n + ((abs(y_tip_nose) - abs(y_kick_start_nose)) * math.tan(math.radians(angle_nose)))
-            raw_gen_width = core_width + 5.0
-            max_feasible_width = (radius_concave * 2.0) - 2.0
-            gen_width = min(raw_gen_width, max_feasible_width)
-            cos_nose = math.cos(math.radians(angle_nose)) if angle_nose < 89 else 0.1
-            cos_tail = math.cos(math.radians(angle_tail)) if angle_tail < 89 else 0.1
+            gen_width = core_width + 5.0
             
             offset_z_gap_flat = mold_gap
-            offset_z_gap_nose = mold_gap / cos_nose
-            offset_z_gap_tail = mold_gap / cos_tail
-            
             offset_z_ven_flat = -veneer_thick
-            offset_z_ven_nose = -veneer_thick / cos_nose
-            offset_z_ven_tail = -veneer_thick / cos_tail
-
+            
             radius_gap = radius_concave + mold_gap if radius_concave < 5000 else radius_concave
             radius_ven = radius_concave - veneer_thick if radius_concave < 5000 else radius_concave
 
-            def make_wire_triplet(z_pos, y_pos, rot_angle, z_offset_gap, z_offset_ven):
-                w_m = create_profile_wire(0, gen_width, radius_concave, is_flat=(rot_angle!=0), angle_rot=rot_angle)
-                w_m.translate(fc.Vector(0, y_pos, z_pos))
-                w_g = create_profile_wire(0, gen_width, radius_gap, is_flat=(rot_angle!=0), angle_rot=rot_angle)
-                w_g.translate(fc.Vector(0, y_pos, z_pos + z_offset_gap))
-                w_v = create_profile_wire(0, gen_width, radius_ven, is_flat=(rot_angle!=0), angle_rot=rot_angle)
-                w_v.translate(fc.Vector(0, y_pos, z_pos + z_offset_ven))
-                
-                return w_m, w_g, w_v
-
+            # --- SECTIONS ---
             sections_master = []
             sections_gap = []
             sections_veneer = []
             
-            wm, wg, wv = make_wire_triplet(z_tip_t, y_tip_tail, -angle_tail, offset_z_gap_tail, offset_z_ven_tail)
-            sections_master.append(wm); sections_gap.append(wg); sections_veneer.append(wv)
+            def add_slice(y_pos, z_pos, rot_angle):
+                is_outside_concave = abs(y_pos) > (y_concave_end + 0.01)
+                is_kick_rot = abs(rot_angle) > 0.1
+                force_flat = is_outside_concave or is_kick_rot
+                
+                wm = create_profile_wire(0, gen_width, radius_concave, is_flat=force_flat, angle_rot=rot_angle, flat_width=tub_width)
+                wm.translate(fc.Vector(0, y_pos, z_pos))
+                
+                wg = create_profile_wire(0, gen_width, radius_gap, is_flat=force_flat, angle_rot=rot_angle, flat_width=tub_width)
+                wg.translate(fc.Vector(0, y_pos, z_pos + offset_z_gap_flat))
+                
+                wv = create_profile_wire(0, gen_width, radius_ven, is_flat=force_flat, angle_rot=rot_angle, flat_width=tub_width)
+                wv.translate(fc.Vector(0, y_pos, z_pos + offset_z_ven_flat))
+                
+                sections_master.append(wm)
+                sections_gap.append(wg)
+                sections_veneer.append(wv)
+
+            # --- TAIL ---
+            STEPS_KICK = 5
+            dist_tail = abs(y_tip_tail - y_kick_start_tail)
+            for i in range(STEPS_KICK + 1):
+                idx = STEPS_KICK - i
+                ratio = idx / float(STEPS_KICK)
+                d_y = dist_tail * ratio 
+                y_curr = y_kick_start_tail - d_y
+                limit_y_curved = rad_tail * math.sin(math.radians(angle_tail))
+                if d_y <= limit_y_curved:
+                    arg = rad_tail**2 - d_y**2
+                    if arg < 0: arg=0
+                    z_curr = rad_tail - math.sqrt(arg)
+                    alpha = math.degrees(math.asin(clamp(d_y/rad_tail, -1, 1)))
+                    rot = -alpha 
+                else:
+                    z_limit = rad_tail - (rad_tail * math.cos(math.radians(angle_tail)))
+                    excess_y = d_y - limit_y_curved
+                    z_curr = z_limit + (excess_y * math.tan(math.radians(angle_tail)))
+                    rot = -angle_tail
+                add_slice(y_curr, z_curr, rot)
+
+            # --- FLAT CENTER ---
+            if y_kick_start_tail < -y_concave_end:
+                add_slice(y_kick_start_tail + 0.1, 0, 0)
             
-            wm, wg, wv = make_wire_triplet(z_kick_start_t, y_kick_start_tail, -angle_tail, offset_z_gap_tail, offset_z_ven_tail)
-            sections_master.append(wm); sections_gap.append(wg); sections_veneer.append(wv)
+            add_slice(-y_concave_end, 0, 0)
+            add_slice(y_concave_end, 0, 0)
+            
+            if y_kick_start_nose > y_concave_end:
+                add_slice(y_kick_start_nose - 0.1, 0, 0)
+            
+            # --- NOSE ---
+            dist_nose = y_tip_nose - y_kick_start_nose
+            for i in range(STEPS_KICK + 1):
+                ratio = i / float(STEPS_KICK)
+                d_y = dist_nose * ratio
+                y_curr = y_kick_start_nose + d_y
+                limit_y_curved = rad_nose * math.sin(math.radians(angle_nose))
+                if d_y <= limit_y_curved:
+                    arg = rad_nose**2 - d_y**2
+                    if arg < 0: arg = 0
+                    z_curr = rad_nose - math.sqrt(arg)
+                    alpha = math.degrees(math.asin(clamp(d_y/rad_nose, -1, 1)))
+                    rot = alpha
+                else:
+                    z_limit = rad_nose - (rad_nose * math.cos(math.radians(angle_nose)))
+                    excess_y = d_y - limit_y_curved
+                    z_curr = z_limit + (excess_y * math.tan(math.radians(angle_nose)))
+                    rot = angle_nose
+                add_slice(y_curr, z_curr, rot)
 
-            wm, wg, wv = make_wire_triplet(0, -half_concave_act, 0, offset_z_gap_flat, offset_z_ven_flat)
-            wm.translate(fc.Vector(0,0,camber)); wg.translate(fc.Vector(0,0,camber)); wv.translate(fc.Vector(0,0,camber))
-            sections_master.append(wm); sections_gap.append(wg); sections_veneer.append(wv)
-
-            wm, wg, wv = make_wire_triplet(0, half_concave_act, 0, offset_z_gap_flat, offset_z_ven_flat)
-            wm.translate(fc.Vector(0,0,camber)); wg.translate(fc.Vector(0,0,camber)); wv.translate(fc.Vector(0,0,camber))
-            sections_master.append(wm); sections_gap.append(wg); sections_veneer.append(wv)
-
-            wm, wg, wv = make_wire_triplet(z_kick_start_n, y_kick_start_nose, angle_nose, offset_z_gap_nose, offset_z_ven_nose)
-            sections_master.append(wm); sections_gap.append(wg); sections_veneer.append(wv)
-
-            wm, wg, wv = make_wire_triplet(z_tip_n, y_tip_nose, angle_nose, offset_z_gap_nose, offset_z_ven_nose)
-            sections_master.append(wm); sections_gap.append(wg); sections_veneer.append(wv)
-
+            # --- BUILD ---
             s_master = Part.makeLoft(sections_master, False, False)
             surf_gap = Part.makeLoft(sections_gap, False, False)
             surf_veneer = Part.makeLoft(sections_veneer, False, False)
@@ -540,13 +649,24 @@ class FB_Mold:
             drill_comp = Part.makeCompound(cyls)
             
             bbox = s_master.BoundBox
+            z_max_safe = bbox.ZMax + 50
+            z_min_safe = bbox.ZMin - 50
+            
             if fp.MoldType == "Male_Mold":
                 z_m_bot = camber - core_base_depth - base_height
                 m_base = make_rounded_box(base_width, mold_len, base_height, M_Radius) 
                 m_base.translate(fc.Vector(0, 0, z_m_bot))
-                m_core = Part.makeBox(core_width, mold_len, (bbox.ZMax + 5) - z_m_bot, fc.Vector(-core_width/2, -mold_len/2, z_m_bot))
-                fill_m = create_fillet_fillers(core_width, mold_len, z_m_bot + base_height, True)
-                male = m_core.fuse(fill_m).cut(cutter_up).fuse(m_base).cut(drill_comp)
+                m_core = Part.makeBox(core_width, mold_len, (z_max_safe) - z_m_bot, fc.Vector(-core_width/2, -mold_len/2, z_m_bot))
+                
+                # --- FILLET LOGIC ---
+                male_structure = m_core
+                use_fillet_radius = 10.0 if bool(fp.AddFillet) else 0.0
+                
+                if use_fillet_radius > 0.1:
+                    fill_m = create_fillet_fillers(core_width, mold_len, z_m_bot + base_height, use_fillet_radius, True)
+                    male_structure = male_structure.fuse(fill_m)
+                
+                male = male_structure.cut(cutter_up).fuse(m_base).cut(drill_comp)
                 fp.Shape = male
                 
             elif fp.MoldType == "Female_Mold":
@@ -555,31 +675,43 @@ class FB_Mold:
                 f_base = make_rounded_box(base_width, mold_len, base_height, M_Radius)
                 f_base.translate(fc.Vector(0, 0, f_base_z))
                 f_core = Part.makeBox(core_width, mold_len, z_f_top - (bbox.ZMin - 5), fc.Vector(-core_width/2, -mold_len/2, bbox.ZMin - 5))
-                fill_f = create_fillet_fillers(core_width, mold_len, f_base_z, False)
-                female = f_core.fuse(fill_f).cut(cutter_down).fuse(f_base).cut(drill_comp)
+                
+                # --- FILLET LOGIC ---
+                female_structure = f_core
+                use_fillet_radius = 10.0 if bool(fp.AddFillet) else 0.0
+                
+                if use_fillet_radius > 0.1:
+                    fill_f = create_fillet_fillers(core_width, mold_len, f_base_z, use_fillet_radius, False)
+                    female_structure = female_structure.fuse(fill_f)
+
+                female = female_structure.cut(cutter_down).fuse(f_base).cut(drill_comp)
                 fp.Shape = female
             
             elif fp.MoldType in ["Shaper_Template", "Board_Preview"]:
+                # Logic unchanged
                 y_n = (wheelbase/2) + truck_hole_len + kick_gap + nose_len
                 y_t = -((wheelbase/2) + truck_hole_len + kick_gap + tail_len)
                 w_half = board_width / 2.0 
                 half_ntw = 0.1
                 half_ttw = 0.1
-                
-                y_n = (wheelbase/2) + truck_hole_len + kick_gap + nose_len
-                nose_start_y = y_n - nose_taper
+                nose_taper = fp.NoseTaperStart.Value
+                tail_taper = fp.TailTaperStart.Value
+                raw_n_flat = fp.NoseFlatness 
+                nose_flatness = clamp(float(raw_n_flat) / 100.0, 0.0, 1.0)
+                raw_t_flat = fp.TailFlatness
+                tail_flatness = clamp(float(raw_t_flat) / 100.0, 0.0, 1.0)
 
-                p0_n = fc.Vector(w_half, nose_start_y, 0)      # Taper Start
-                p3_n = fc.Vector(half_ntw, y_n, 0)            # Tip Angle
+                nose_start_y = y_n - nose_taper
+                p0_n = fc.Vector(w_half, nose_start_y, 0)      
+                p3_n = fc.Vector(half_ntw, y_n, 0)            
                 p1_n = fc.Vector(w_half, nose_start_y + (nose_taper * nose_flatness), 0)
                 p2_n = fc.Vector(half_ntw + (w_half - half_ntw) * nose_flatness, y_n, 0)
                 bz_nose = Part.BezierCurve()
                 bz_nose.setPoles([p0_n, p1_n, p2_n, p3_n])
                 
-                y_t = -((wheelbase/2) + truck_hole_len + kick_gap + tail_len)
                 tail_start_y = y_t + tail_taper
-                p0_t = fc.Vector(w_half, tail_start_y, 0)      # Taper Start
-                p3_t = fc.Vector(half_ttw, y_t, 0)            # Tip Angle
+                p0_t = fc.Vector(w_half, tail_start_y, 0)      
+                p3_t = fc.Vector(half_ttw, y_t, 0)            
                 p1_t = fc.Vector(w_half, tail_start_y - (tail_taper * tail_flatness), 0)
                 p2_t = fc.Vector(half_ttw + (w_half - half_ttw) * tail_flatness, y_t, 0)
                 bz_tail = Part.BezierCurve()
@@ -597,9 +729,8 @@ class FB_Mold:
                 face = Part.Face(w_full_shp)
                   
                 if fp.MoldType == "Shaper_Template":
-                    z_nose_real = z_kick_start_n + ((y_n - y_kick_start_nose) * math.tan(math.radians(angle_nose)))
-                    z_tail_real = z_kick_start_t + ((abs(y_t) - abs(y_kick_start_tail)) * math.tan(math.radians(angle_tail)))
-                    z_board_top_surface = max(z_nose_real, z_tail_real) + mold_gap
+                    z_nose_real = z_curr if 'z_curr' in locals() else 5.0
+                    z_board_top_surface = 5.0 
                     z_flat_top = z_board_top_surface + shaper_height
                     
                     shaper_block = face.extrude(fc.Vector(0, 0, -100))

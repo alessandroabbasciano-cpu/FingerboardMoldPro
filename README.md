@@ -13,6 +13,12 @@ It allows makers to generate organic, customizable 3D-printable molds used to pr
 * **Presets System**: Save your best shapes as JSON presets and reload them instantly.
 * **Batch Export**: Automatically exports all necessary STL files (Male, Female, Template) with a single click.
 
+### v1.2 Update: New Geometry Engine
+- **True Radius Kicks:** The kick geometry is now calculated using a precise radius derived from the Transition Length. No more "wavy" splines; kicks are crisp and defined.
+- **Tub Concave:** Added `TubWidth` parameter to create a flat central section with curved sides (modern street shape).
+- **Side Printing Prep:** Added `AddFillet` (Bool). Set to `False` to remove the base fillet, making it easier to print the mold on its side without supports.
+- **Fix:** Fixed center "belly" issue in the concave profile.
+
 ---
 
 ## 📦 Installation
