@@ -83,22 +83,5 @@
         "TransitionLength": 10,
         "KickGap": 1.5,
         "TubWidth": 8.0
-    },
-    "LATENIGHTHI": {
-        "MoldCoreHeight": 5.0,
-        "Wheelbase": 43.7,
-        "ConcaveDrop": 2.0,
-        "NoseLength": 18.15,
-        "TailLength": 18.15,
-        "NoseAngle": 25.5,
-        "TailAngle": 25.5,
-        "ConcaveLength": 36.2,
-        "NoseFlatness": 60,
-        "TailFlatness": 60,
-        "NoseTaperStart": 18.0,
-        "TailTaperStart": 18.0,
-        "TransitionLength": 5.5,
-        "KickGap": 0.5,
-        "TubWidth": 8.0
     }
 }

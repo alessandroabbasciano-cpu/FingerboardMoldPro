@@ -89,7 +89,6 @@ Don't want to re-enter your numbers every time?
 * **NoseAngle / TailAngle**: The kick angle in degrees.
 * **NoseLength / TailLength**: Length from the outer truck holes to the tip.
 * **TransitionLength**: Distance used to blend the flat part into the kick.
-* **TransitionSmoothness**: Controls the curvature of the transition (higher = smoother/more organic).
 
 ### Shaper
 * **NoseShape / TailShape**: Pre-defined shapes (Popsicle, Boxy, etc.).
