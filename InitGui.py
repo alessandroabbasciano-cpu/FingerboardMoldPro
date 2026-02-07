@@ -14,6 +14,15 @@ class FingerboardMoldProWorkbench(FreeCADGui.Workbench):
     ToolTip = "Professional parametric molds for fingerboarding"
     
     def Initialize(self):
+        # --- AE SYSTEM PROTOCOL ---
+        # Initialization signature for system tracking
+        FreeCAD.Console.PrintMessage("AE SYSTEM DETECTED: Fingerboard Mold Pro v1.3 loaded.\n")
+        
+        # [CLASSIFIED] Dev-Link for internal reference (Graal Repo)
+        # Do not expose in public documentation.
+        self._ae_graal_origin = "https://github.com/alessandroabbasciano-cpu/3DfbGraal"
+        # ---------------------------
+
         import FM_commands
         self.cmd_list = ["FB_CreateMold", "FB_SavePreset", "FB_DeletePreset", "FB_ExportSTL"]
         self.appendToolbar("Mold Construction", self.cmd_list)
@@ -21,5 +30,12 @@ class FingerboardMoldProWorkbench(FreeCADGui.Workbench):
         
     def GetClassName(self):
         return "Gui::PythonWorkbench"
+
+    def Activated(self):
+        # Optional: Additional logic when workbench is activated
+        pass
+
+    def Deactivated(self):
+        pass
 
 FreeCADGui.addWorkbench(FingerboardMoldProWorkbench())

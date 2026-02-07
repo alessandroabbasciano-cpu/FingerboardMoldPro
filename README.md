@@ -9,15 +9,17 @@ It allows makers to generate organic, customizable 3D-printable molds used to pr
 ## 🚀 Key Features
 * **Loft & Bezier Engine**: Generates organic shapes and fluid transitions (no simple geometric arcs).
 * **Fully Parametric**: Every dimension (wheelbase, kick height, concave depth) is adjustable in real-time.
-* **Full Layout**: Automatically generates 4 objects in the scene (Deck, Male Mold, Female Mold, Template) positioned for an immediate overview.
-* **Presets System**: Save your best shapes as JSON presets and reload them instantly.
+* **SideLocks System (New in v1.3)**: Integrated pentagonal guides allowing molds to be printed vertically without supports.
+* **Concave Styles**: Choose between "Organic" (Classic Wavy) or "Flat" (Modern Tub/Pocket) geometry.
 * **Batch Export**: Automatically exports all necessary STL files (Male, Female, Template) with a single click.
 
-### v1.2 Update: New Geometry Engine
-- **True Radius Kicks:** The kick geometry is now calculated using a precise radius derived from the Transition Length. No more "wavy" splines; kicks are crisp and defined.
-- **Tub Concave:** Added `TubWidth` parameter to create a flat central section with curved sides (modern street shape).
-- **Side Printing Prep:** Added `AddFillet` (Bool). Set to `False` to remove the base fillet, making it easier to print the mold on its side without supports.
-- **Fix:** Fixed center "belly" issue in the concave profile.
+### v1.3 Release Notes: The "Vertical" Update
+- **New: SideLocks System**: Added `SideLocks` (Bool). When enabled, it generates pentagonal guide rails on the sides of the mold. This allows you to print the Male and Female parts standing vertically on the print bed **without any supports**, ensuring the smoothest possible surface finish on the pressing face.
+- **New: Concave Styles**: Added `ConcaveStyle` parameter.
+    - **Organic**: The classic continuous curve (Wavy).
+    - **Flat**: A modern "Tub" or "Pocket" concave with a flat central section and steep walls.
+- **Improved**: The `AddFillet` logic is now fully compatible with SideLocks.
+- **Fix**: Resolved topological issues in the "Belly" section of the loft.
 
 ---
 
@@ -52,51 +54,99 @@ When you create a new mold, **4 objects** will appear in the project tree:
 
 ### 2. Step-by-Step Workflow
 1.  **Select the Workbench**: Choose "Fingerboard Mold Pro" from the dropdown menu.
-2.  **Create**: Click the **New Mold** icon (Yellow Deck icon). The 4 objects will appear in the 3D view, spaced apart to avoid overlapping.
+2.  **Create**: Click the **New Mold** icon (Yellow Deck icon).
 3.  **Edit Parameters**:
     * Select the **`Board_Preview`** object in the tree.
-    * Go to the **Data** tab in the Property View (bottom left).
-    * Change values (e.g., `Wheelbase`, `NoseAngle`, etc.) and press **Enter**.
-    * You will see all 4 objects update simultaneously with the new measurements.
-4.  **Visualization**:
-    * There is no need to switch views or toggle visibility: you always have a full overview of how the Male and Female molds fit the deck geometry.
+    * Go to the **Data** tab in the Property View.
+    * Change values (e.g., `Wheelbase`, `NoseAngle`) and press **Enter**.
+4.  **Visualize & Export**:
+    * Use the **Batch Export STL** icon (Green arrow) to generate files for your 3D printer.
 
-### 3. Using Presets
-Don't want to re-enter your numbers every time?
-* **Save**: Select the Master (`Board_Preview`), click the **Save Preset** icon (Floppy disk), and give it a name.
-* **Load**: Select the Master. In the Data Tab, find the **`Preset`** dropdown and select your saved preset.
+### 💡 Pro Tip: The Vertical Printing Strategy (The "Side-Print" Method)
+To get the smoothest possible surface on your mold (the curved part touching the veneer), you should print the molds standing on their side.
 
-### 4. Exporting for 3D Printing (STL)
-1.  Select the **`Board_Preview`** object.
-2.  Click the **Export Batch STL** icon (Green arrow).
-3.  Choose a destination folder.
-4.  The script will automatically generate individual files for printing:
-    * `YourBoardName_Male_Mold.stl`
-    * `YourBoardName_Female_Mold.stl`
-    * `YourBoardName_Shaper_Template.stl`
+1.  **Enable `SideLocks`**: This places the alignment keys on the **Nose and Tail ends** of the mold, keeping the long sides free of obstructions.
+2.  **Disable `AddFillet`**: Set to `False` to remove the rounded bottom edge, creating a sharp 90° corner for stable adhesion.
+3.  **Flatten the Sides**: Set **`MoldBaseWidth` equal to `MoldCoreWidth`**.
+    * *Why?* If the Base is wider than the Core, you have a "step" on the side. By making them equal (e.g., both 45mm), you create a perfectly flush, flat side wall that sits solidly on the printer bed.
+4.  **Slicer Orientation**: Rotate the object **90°** so it stands on this flat long edge.
+    * *Result:* Zero supports needed, and layer lines run along the length of the kick for a superior finish.
 
 ---
 
 ## 🎛️ Parameters Glossary (Data Tab)
 
-### Board Geometry
-* **BoardWidth**: The maximum width of the deck.
-* **Wheelbase**: Distance between truck holes (inner to inner).
-* **ConcaveDrop**: Depth of the concave in mm.
-* **ConcaveLength**: Length of the flat section of the concave.
+### 1. Mold Structure & Printing
+*These parameters control the physical block of the mold, not the shape of the deck.*
 
-### Kicks (Nose & Tail)
-* **NoseAngle / TailAngle**: The kick angle in degrees.
-* **NoseLength / TailLength**: Length from the outer truck holes to the tip.
-* **TransitionLength**: Distance used to blend the flat part into the kick.
+* **`SideLocks`** (Bool)
+    * **Function:** If `True`, generates pentagonal rails on the sides of the Male/Female parts.
+    * **Usage:** Enables **Vertical Printing**. The locks align the two halves perfectly, allowing the pressing surface to be printed vertically for maximum smoothness without supports.
+* **`MoldBaseHeight`**
+    * **Function:** Thickness of the base plate (the part that touches the clamp/press).
+    * **Limits:** Max **20.0mm**.
+* **`MoldCornerRadius`**
+    * **Function:** Aesthetic radius on the vertical corners of the mold block.
+    * **Limits:** Min **0.1mm** - Max **5.0mm**.
+* **`AddFillet`** (Bool)
+    * **Function:** Adds a rounded fillet at the base of the mold structure for reinforcement.
+    * **Recommendation:** Keep `True` for strength. Set to `False` **ONLY** if printing horizontally without SideLocks (to get a flat bottom).
 
-### Shaper
-* **NoseShape / TailShape**: Pre-defined shapes (Popsicle, Boxy, etc.).
-* **TaperStart**: Point where the width starts to narrow towards the tip.
-* **Flatness**: Shape of the tip (0 = Pointy, 100 = Square).
+### 2. Board Geometry (The Core)
+*Dimensions defining the main body of the fingerboard.*
+
+* **`BoardWidth`**
+    * **Function:** The maximum width of the deck (usually at the widest point).
+    * **Limits:** Min **29.0mm**. Cannot exceed `MoldCoreWidth` (default 45mm).
+* **`Wheelbase`**
+    * **Function:** Distance between the *inner* truck holes. This is the primary driver for the mold's length.
+    * **Limits:** Min **30.0mm** - Max **50.0mm**.
+* **`ConcaveDrop`**
+    * **Function:** The depth of the concave (height difference between the center and the edge).
+    * **Limits:** Max **3.4mm** (Values higher than this cause veneer cracking).
+* **`ConcaveLength`**
+    * **Function:** The length of the central section where the concave profile is applied.
+    * **Limits:** Cannot exceed the `Wheelbase`.
+* **`ConcaveStyle`**
+    * **`Organic`**: Generates a continuous, smooth curve from edge to edge (Classic style).
+    * **`Flat`**: Generates a "Tub" or "Pocket" concave with a completely flat center and steep curved walls (Modern street style).
+* **`TubWidth`**
+    * **Function:** Defines the width of the flat central strip.
+    * **Condition:** Active **ONLY** if `ConcaveStyle` is set to **"Flat"**.
+    * **Limits:** Max is `BoardWidth - 2mm`.
+
+### 3. Kicks (Nose & Tail)
+*Parameters controlling the bends at the tips.*
+
+* **`NoseAngle` / `TailAngle`**
+    * **Function:** The steepness of the kicks in degrees.
+    * **Limits:** Max **45°**.
+* **`NoseLength` / `TailLength`**
+    * **Function:** Total length of the kick measured from the *outer* truck holes to the tip.
+    * **Limits:** Min **5.0mm** - Max **23.0mm**.
+* **`TransitionLength`**
+    * **Function:** The horizontal distance used to blend the flat wheelbase into the angled kick.
+    * **Physics:** This mathematically defines the **Radius** of the kick bend.
+        * *Larger Value* = Mellow, large radius curve.
+        * *Smaller Value* = Sharp, tight kink.
+    * **Limits:** Min **0.1mm** - Max **10.0mm** (or limited by available Kick Length).
+
+### 4. Shaper Template (Cutout Guide)
+*Parameters for the green transparent object used to trace the outline.*
+
+* **`NoseShape` / `TailShape`**
+    * **Function:** Selects a pre-defined tip shape (Popsicle, Boxy, Spade, etc.) from the library.
+* **`NoseTaperStart` / `TailTaperStart`**
+    * **Function:** The distance from the tip where the board starts to narrow (taper).
+    * **Usage:** Lower values make the board parallel for longer (wider nose/tail).
+* **`NoseFlatness` / `TailFlatness`**
+    * **Function:** Controls the curvature of the very tip.
+    * **Values:**
+        * **0%**: Perfectly Pointy.
+        * **100%**: Perfectly Square (Boxy).
+        * **50-70%**: Standard Popsicle shape.
 
 ---
-
 ## License
 This workbench is licensed under the **LGPLv2.1** (same as FreeCAD).  
 

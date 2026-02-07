@@ -139,8 +139,8 @@ class FB_Mold:
         obj.addProperty("App::PropertyLength", "MoldBaseHeight", "Mold Base").MoldBaseHeight = 10.0
         obj.addProperty("App::PropertyLength", "GuideDiameter", "Mold Base").GuideDiameter = 6.5
         obj.addProperty("App::PropertyLength", "MoldCornerRadius", "Mold Base").MoldCornerRadius = 5.0 
-        # --- NEW PROPERTY: FILLET ON/OFF ---
         obj.addProperty("App::PropertyBool", "AddFillet", "Mold Base").AddFillet = True
+        obj.addProperty("App::PropertyBool", "SideLocks", "Mold Base").SideLocks = False
         
         obj.addProperty("App::PropertyLength", "MoldCoreWidth", "Mold Core").MoldCoreWidth = 45.0
         obj.addProperty("App::PropertyLength", "MoldCoreHeight", "Mold Core").MoldCoreHeight = 5.0
@@ -150,7 +150,9 @@ class FB_Mold:
         obj.addProperty("App::PropertyLength", "BoardWidth", "Board Geometry").BoardWidth = 34.0
         obj.addProperty("App::PropertyLength", "Wheelbase", "Board Geometry").Wheelbase = 44.0
         obj.addProperty("App::PropertyLength", "ConcaveDrop", "Board Geometry").ConcaveDrop = 1.5
-        obj.addProperty("App::PropertyLength", "ConcaveLength", "Board Geometry").ConcaveLength = 22.0
+        obj.addProperty("App::PropertyLength", "ConcaveLength", "Board Geometry").ConcaveLength = 40.0
+        obj.addProperty("App::PropertyEnumeration", "ConcaveStyle", "Board Geometry")
+        obj.ConcaveStyle = ["Flat", "Organic"] 
         obj.addProperty("App::PropertyLength", "TubWidth", "Board Geometry").TubWidth = 8.0
         obj.addProperty("App::PropertyLength", "VeneerThickness", "Board Geometry").VeneerThickness = 2.5
         
@@ -298,7 +300,7 @@ class FB_Mold:
                 elif fp.ConcaveDrop.Value < 0.0:
                     fp.ConcaveDrop = 0.0
             elif prop == "ConcaveLength":
-                max_len = fp.Wheelbase.Value - fp.TruckHoleDistL.Value
+                max_len = fp.Wheelbase.Value
                 if fp.ConcaveLength.Value > max_len:
                     fp.ConcaveLength = max_len
                     fc.Console.PrintWarning(f"Based on Wheelbase cannot exceed ({max_len}mm)!\n")
@@ -470,7 +472,7 @@ class FB_Mold:
             truck_hole_width = fp.TruckHoleDistW.Value
             truck_hole_diam = fp.TruckHoleDiam.Value
             
-            concave_len = clamp(fp.ConcaveLength.Value, 0.1, wheelbase - truck_hole_len)
+            concave_len = clamp(fp.ConcaveLength.Value, 0.1, wheelbase)
             camber = 0.0
             kick_gap = clamp(fp.KickGap.Value, 0.5, 5.0)
             nose_len = clamp(fp.NoseLength.Value, 5.0, 23.0)
@@ -592,6 +594,9 @@ class FB_Mold:
                     rot = -angle_tail
                 add_slice(y_curr, z_curr, rot)
 
+            # --- SPLIT 1 ---
+            idx_split_1 = len(sections_master) - 1
+
             # --- FLAT CENTER ---
             if y_kick_start_tail < -y_concave_end:
                 add_slice(y_kick_start_tail + 0.1, 0, 0)
@@ -602,6 +607,9 @@ class FB_Mold:
             if y_kick_start_nose > y_concave_end:
                 add_slice(y_kick_start_nose - 0.1, 0, 0)
             
+            # --- SPLIT 2 ---
+            idx_split_2 = len(sections_master) - 1
+
             # --- NOSE ---
             dist_nose = y_tip_nose - y_kick_start_nose
             for i in range(STEPS_KICK + 1):
@@ -622,13 +630,38 @@ class FB_Mold:
                     rot = angle_nose
                 add_slice(y_curr, z_curr, rot)
 
-            # --- BUILD ---
-            s_master = Part.makeLoft(sections_master, False, False)
-            surf_gap = Part.makeLoft(sections_gap, False, False)
-            surf_veneer = Part.makeLoft(sections_veneer, False, False)
+            # --- BUILDER FUNCTION (HYBRID LOFT) ---
+            def create_hybrid_loft(sect_list):
+                style = "Organic"
+                if hasattr(fp, "ConcaveStyle"):
+                    style = fp.ConcaveStyle
+                    
+                if style == "Organic" or len(sect_list) < 5:
+                    return Part.makeLoft(sect_list, False, False) 
+                
+                seg_tail = sect_list[0 : idx_split_1 + 1]
+                seg_center = sect_list[idx_split_1 : idx_split_2 + 1]
+                seg_nose = sect_list[idx_split_2 : ]
+                
+                loft_tail = Part.makeLoft(seg_tail, False, False)
+                loft_center = Part.makeLoft(seg_center, False, True) 
+                loft_nose = Part.makeLoft(seg_nose, False, False)
+                
+                all_faces = loft_tail.Faces + loft_center.Faces + loft_nose.Faces
+                return Part.makeShell(all_faces)
+
+            # --- BUILD SURFACES ---
+            s_master = create_hybrid_loft(sections_master)
+            surf_gap = create_hybrid_loft(sections_gap)
+            surf_veneer = create_hybrid_loft(sections_veneer)
 
             if s_master.isNull() or surf_gap.isNull(): 
                 raise Exception("Loft generation failed")
+
+            # --- SAFE BOUNDS ---
+            bbox = s_master.BoundBox
+            z_max_safe = bbox.ZMax + 50
+            z_min_safe = bbox.ZMin - 50
 
             cutter_up = s_master.extrude(fc.Vector(0,0,EXTRUSION_LIMIT))
             cutter_down = surf_gap.extrude(fc.Vector(0,0,-EXTRUSION_LIMIT))
@@ -648,25 +681,74 @@ class FB_Mold:
                 cyls.append(Part.makeCylinder(truck_hole_diam/2, EXTRUSION_LIMIT*2, fc.Vector(cx, cy, -EXTRUSION_LIMIT)))
             drill_comp = Part.makeCompound(cyls)
             
-            bbox = s_master.BoundBox
-            z_max_safe = bbox.ZMax + 50
-            z_min_safe = bbox.ZMin - 50
-            
+            # --- SIDE LOCKS ---
+            use_locks = False
+            if hasattr(fp, "SideLocks") and fp.SideLocks:
+                use_locks = True
+                EXT_LEN = 6.0       
+                TOLERANCE = 0.05      
+                OVERLAP = 0.1 
+
+                def make_pentagon_lock(w_base, h_tot, length, tol=0.0):
+                                        
+                    wb = w_base + (2*tol)
+                    a_eff = w_base / 2.0
+                    r_eff = h_tot 
+                    # hs = sqrt(R^2 - A^2)
+                    if r_eff > a_eff + 1.0:
+                        hs = math.sqrt(r_eff**2 - a_eff**2)
+                    else:
+                        hs = r_eff * 0.5 # Fallback
+                    
+                    p1 = fc.Vector(-wb/2, 0, 0)
+                    p2 = fc.Vector(wb/2, 0, 0)
+                    p3 = fc.Vector(wb/2, 0, hs)
+                    p4 = fc.Vector(0, 0, h_tot + tol) # Punta
+                    p5 = fc.Vector(-wb/2, 0, hs)
+                    
+                    wire = Part.makePolygon([p1, p2, p3, p4, p5, p1])
+                    face = Part.Face(wire)
+                    prism = face.extrude(fc.Vector(0, length, 0))
+                    return prism
+
+                def make_female_cap(w_base, h_cap_total, length, male_h_tot):
+                    box = Part.makeBox(w_base, length, h_cap_total, fc.Vector(-w_base/2, 0, 0))
+                    cutter = make_pentagon_lock(w_base, male_h_tot, length, TOLERANCE)
+                    return box.cut(cutter)
+
             if fp.MoldType == "Male_Mold":
                 z_m_bot = camber - core_base_depth - base_height
+                
+                z_base_real = bbox.ZMin
+                if fp.AddFillet: 
+                    z_base_real = z_m_bot
+                
                 m_base = make_rounded_box(base_width, mold_len, base_height, M_Radius) 
                 m_base.translate(fc.Vector(0, 0, z_m_bot))
                 m_core = Part.makeBox(core_width, mold_len, (z_max_safe) - z_m_bot, fc.Vector(-core_width/2, -mold_len/2, z_m_bot))
                 
-                # --- FILLET LOGIC ---
                 male_structure = m_core
                 use_fillet_radius = 10.0 if bool(fp.AddFillet) else 0.0
-                
                 if use_fillet_radius > 0.1:
                     fill_m = create_fillet_fillers(core_width, mold_len, z_m_bot + base_height, use_fillet_radius, True)
                     male_structure = male_structure.fuse(fill_m)
                 
                 male = male_structure.cut(cutter_up).fuse(m_base).cut(drill_comp)
+
+                # --- APPLY SIDE LOCKS (MALE) ---
+                if use_locks:
+                    h_male_real = male.BoundBox.ZMax - male.BoundBox.ZMin
+                    R_lock = h_male_real + 5.0
+                    z_lock_base = male.BoundBox.ZMin 
+                    
+                    lock_n = make_pentagon_lock(core_width, R_lock, EXT_LEN)
+                    lock_n.translate(fc.Vector(0, mold_len/2.0 - OVERLAP, z_lock_base))
+                    
+                    lock_t = make_pentagon_lock(core_width, R_lock, EXT_LEN)
+                    lock_t.translate(fc.Vector(0, -(mold_len/2.0) - EXT_LEN + OVERLAP, z_lock_base))
+                    
+                    male = male.fuse(lock_n).fuse(lock_t)
+
                 fp.Shape = male
                 
             elif fp.MoldType == "Female_Mold":
@@ -676,17 +758,35 @@ class FB_Mold:
                 f_base.translate(fc.Vector(0, 0, f_base_z))
                 f_core = Part.makeBox(core_width, mold_len, z_f_top - (bbox.ZMin - 5), fc.Vector(-core_width/2, -mold_len/2, bbox.ZMin - 5))
                 
-                # --- FILLET LOGIC ---
                 female_structure = f_core
                 use_fillet_radius = 10.0 if bool(fp.AddFillet) else 0.0
-                
                 if use_fillet_radius > 0.1:
                     fill_f = create_fillet_fillers(core_width, mold_len, f_base_z, use_fillet_radius, False)
                     female_structure = female_structure.fuse(fill_f)
 
                 female = female_structure.cut(cutter_down).fuse(f_base).cut(drill_comp)
+                
+                # --- APPLY SIDE LOCKS (FEMALE) ---
+                if use_locks:
+                    male_z_min = bbox.ZMin 
+                    male_z_max = bbox.ZMax
+                    h_male_estimated = male_z_max - male_z_min
+                    R_lock_male = h_male_estimated + 5.0
+                    
+                    z_fem_top = female.BoundBox.ZMax
+                    z_ground = bbox.ZMin
+                    h_cap_tot = z_fem_top - z_ground
+                    
+                    cap_n = make_female_cap(core_width, h_cap_tot, EXT_LEN, R_lock_male)
+                    cap_n.translate(fc.Vector(0, mold_len/2.0 - OVERLAP, z_ground))
+                    
+                    cap_t = make_female_cap(core_width, h_cap_tot, EXT_LEN, R_lock_male)
+                    cap_t.translate(fc.Vector(0, -(mold_len/2.0) - EXT_LEN + OVERLAP, z_ground))
+                    
+                    female = female.fuse(cap_n).fuse(cap_t)
+
                 fp.Shape = female
-            
+
             elif fp.MoldType in ["Shaper_Template", "Board_Preview"]:
                 # Logic unchanged
                 y_n = (wheelbase/2) + truck_hole_len + kick_gap + nose_len
@@ -729,7 +829,6 @@ class FB_Mold:
                 face = Part.Face(w_full_shp)
                   
                 if fp.MoldType == "Shaper_Template":
-                    z_nose_real = z_curr if 'z_curr' in locals() else 5.0
                     z_board_top_surface = 5.0 
                     z_flat_top = z_board_top_surface + shaper_height
                     

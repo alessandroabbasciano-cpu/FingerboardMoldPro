@@ -12,7 +12,7 @@ PARAMS_TO_SAVE = [
     "NoseFlatness", "TailFlatness", 
     "NoseTaperStart", "TailTaperStart",
     "TransitionLength", "KickGap", 
-    "TubWidth" 
+    "TubWidth", "AddFillet", "ConcaveStyle", "SideLocks" 
 ]
 
 class CmdCreateMold:
@@ -57,7 +57,7 @@ class CmdCreateMold:
                 "NoseLength", "TailLength", "NoseAngle", "TailAngle",
                 "TruckHoleDiam", "TruckHoleDistL", "TruckHoleDistW", "ShaperHeight",
                 "NoseFlatness", "TailFlatness", "NoseTaperStart", "TailTaperStart",
-                "TubWidth", "AddFillet"             ]
+                "TubWidth", "AddFillet", "ConcaveStyle", "SideLocks"]
 
             for prop in props_to_link:
                 if hasattr(master, prop) and hasattr(slave_obj, prop):
